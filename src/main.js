@@ -56,7 +56,7 @@ async function init() {
   wireEvents()
 
   try {
-    await loadRadarMode('forecast')
+    await loadRadarMode('live')
   } catch (e) {
     toast('Radar data unavailable right now.')
   }

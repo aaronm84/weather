@@ -1,29 +1,34 @@
-// Radar layer on a MapLibre map, with two animated providers:
-//   • "forecast"  — RainViewer: global, past frames + a predicted future
-//                    "nowcast" (forecasted radar movement). Free, no key.
-//   • "detailed"  — NWS NEXRAD base reflectivity (N0Q) via the Iowa
-//                    Environmental Mesonet: US, high-resolution, observed only.
+// Radar layer on a MapLibre map, with two animated providers — both from the
+// Iowa Environmental Mesonet (free, no key), both US:
+//   • "live"     — NWS NEXRAD base reflectivity (N0Q): observed, high-res,
+//                  a ~50-minute past loop.
+//   • "forecast" — NOAA HRRR model simulated reflectivity (REFD): a genuine
+//                  forecast of radar out to +3h, showing predicted movement.
 // Both animate through the shared timeline/play controls.
 
 import maplibregl from 'maplibre-gl'
 
-// ---- RainViewer ("forecast") ------------------------------------------------
-const INDEX_URL = 'https://api.rainviewer.com/public/weather-maps.json'
-const COLOR_SCHEME = 4 // "The Weather Channel"-style palette
-const RV_TILE_SIZE = 512
-const SMOOTH = 1
-const SNOW = 1
-// RainViewer's free API serves 512px tiles only to z7; declaring it makes
-// MapLibre overzoom (scale) rather than request unsupported placeholder tiles.
-const RV_MAX_ZOOM = 7
+const IEM_BASE = 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0'
 
-// ---- NWS / IEM ("detailed") -------------------------------------------------
-// IEM exposes relative "time-lagged" layers (…-m05m … -m50m) plus the current
-// composite, so we can build an observed ~50-minute loop with no clock math.
-const HD_BASE = 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0'
-const HD_TILE_SIZE = 256
-const HD_MAX_ZOOM = 12
-const HD_OFFSETS = [50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0] // minutes ago
+// NWS NEXRAD observed ("live"). IEM exposes relative time-lagged layers.
+const NEXRAD_TILE_SIZE = 256
+const NEXRAD_MAX_ZOOM = 12
+const NEXRAD_OFFSETS = [50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0] // minutes ago
+
+// HRRR model forecast ("forecast"). REFD-F{minutes}-{init}; forecast token is
+// minutes (4-digit), every 15 min to +18h. Init "0" = latest, but we pin an
+// explicitly-available run so frame valid-times are accurate.
+const HRRR_TILE_SIZE = 256
+const HRRR_MAX_ZOOM = 10
+const HRRR_PAST_MIN = 30 // minutes of pre-now context
+const HRRR_FUTURE_MIN = 180 // minutes ahead
+const HRRR_STEP = 15
+
+function utcStamp(ms) {
+  const d = new Date(ms)
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}${p(d.getUTCHours())}${p(d.getUTCMinutes())}`
+}
 
 const BASE_STYLE = {
   version: 8,
@@ -38,7 +43,7 @@ const BASE_STYLE = {
       tileSize: 256,
       maxzoom: 19,
       attribution:
-        '© OpenStreetMap · Radar: RainViewer & NWS/Iowa Environmental Mesonet',
+        '© OpenStreetMap · Radar: NWS NEXRAD & NOAA HRRR via Iowa Environmental Mesonet',
     },
   },
   layers: [
@@ -75,10 +80,9 @@ export class RadarMap {
     this.index = 0
     this.playing = false
     this.timer = null
-    this.mode = 'forecast'
-    this.providerMaxZoom = RV_MAX_ZOOM
-    this.providerTileSize = RV_TILE_SIZE
-    this.host = 'https://tilecache.rainviewer.com'
+    this.mode = 'live'
+    this.providerMaxZoom = NEXRAD_MAX_ZOOM
+    this.providerTileSize = NEXRAD_TILE_SIZE
     this.onFrameChange = onFrameChange || (() => {})
     this.marker = null
     this._loadPromise = new Promise((res) => this.map.on('load', res))
@@ -89,45 +93,40 @@ export class RadarMap {
   }
 
   // ---- Providers ------------------------------------------------------------
-  _rvUrl(path) {
-    return `${this.host}${path}/${RV_TILE_SIZE}/{z}/{x}/{y}/${COLOR_SCHEME}/${SMOOTH}_${SNOW}.png`
-  }
-
-  async _loadRainviewer() {
-    const res = await fetch(INDEX_URL)
-    if (!res.ok) throw new Error('Radar index unavailable')
-    const data = await res.json()
-    this.host = data.host || this.host
-    const past = (data.radar?.past || []).map((f) => ({
-      time: f.time,
-      tiles: this._rvUrl(f.path),
-      isFuture: false,
-    }))
-    const future = (data.radar?.nowcast || []).map((f) => ({
-      time: f.time,
-      tiles: this._rvUrl(f.path),
-      isFuture: true, // predicted radar movement
-    }))
-    this.frames = [...past, ...future]
-    this.providerMaxZoom = RV_MAX_ZOOM
-    this.providerTileSize = RV_TILE_SIZE
-  }
-
-  _hdUrl(offMin) {
-    const layer =
-      offMin === 0 ? 'nexrad-n0q-900913' : `nexrad-n0q-900913-m${String(offMin).padStart(2, '0')}m`
-    return `${HD_BASE}/${layer}/{z}/{x}/{y}.png`
-  }
-
-  _loadHD() {
+  _loadNexrad() {
     const nowSec = Math.floor(Date.now() / 1000)
-    this.frames = HD_OFFSETS.map((off) => ({
-      time: nowSec - off * 60,
-      tiles: this._hdUrl(off),
-      isFuture: false,
-    }))
-    this.providerMaxZoom = HD_MAX_ZOOM
-    this.providerTileSize = HD_TILE_SIZE
+    this.frames = NEXRAD_OFFSETS.map((off) => {
+      const layer = off === 0 ? 'nexrad-n0q-900913' : `nexrad-n0q-900913-m${String(off).padStart(2, '0')}m`
+      return {
+        time: nowSec - off * 60,
+        tiles: `${IEM_BASE}/${layer}/{z}/{x}/{y}.png`,
+        isFuture: false,
+      }
+    })
+    this.providerMaxZoom = NEXRAD_MAX_ZOOM
+    this.providerTileSize = NEXRAD_TILE_SIZE
+  }
+
+  _loadHRRR() {
+    const nowMs = Date.now()
+    // Pin an explicitly-available run: top of the hour, 2h ago (UTC). IEM has
+    // processed it, and knowing the init lets us label frames by valid time.
+    const initMs = Math.floor(nowMs / 3600000) * 3600000 - 2 * 3600000
+    const initToken = utcStamp(initMs)
+    const baseLead = Math.floor((nowMs - initMs) / 60000 / HRRR_STEP) * HRRR_STEP
+    const frames = []
+    for (let m = baseLead - HRRR_PAST_MIN; m <= baseLead + HRRR_FUTURE_MIN; m += HRRR_STEP) {
+      if (m < 0) continue
+      const validMs = initMs + m * 60000
+      frames.push({
+        time: Math.floor(validMs / 1000),
+        tiles: `${IEM_BASE}/hrrr::REFD-F${String(m).padStart(4, '0')}-${initToken}/{z}/{x}/{y}.png`,
+        isFuture: validMs > nowMs,
+      })
+    }
+    this.frames = frames
+    this.providerMaxZoom = HRRR_MAX_ZOOM
+    this.providerTileSize = HRRR_TILE_SIZE
   }
 
   // ---- Layers ---------------------------------------------------------------
@@ -194,14 +193,14 @@ export class RadarMap {
 
   /** Load a provider and rebuild the animation. */
   async setMode(mode) {
-    const m = mode === 'detailed' ? 'detailed' : 'forecast'
+    const m = mode === 'forecast' ? 'forecast' : 'live'
     this.pause()
     await this.ready()
     this._clearRadarLayers()
     this.mode = m
     try {
-      if (m === 'forecast') await this._loadRainviewer()
-      else this._loadHD()
+      if (m === 'forecast') this._loadHRRR()
+      else this._loadNexrad()
     } catch (e) {
       this.frames = []
     }
