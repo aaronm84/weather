@@ -15,6 +15,16 @@ const SNOW = 1
 // tile for closer views instead of requesting the placeholder tiles.
 const RADAR_MAX_ZOOM = 7
 
+// "HD" radar — NWS NEXRAD base-reflectivity composite (N0Q) served as tiles by
+// the Iowa Environmental Mesonet. Free, no key, and high-resolution: sharp at
+// city/street zoom where RainViewer's z7 imagery goes blocky. Current-frame
+// only (no future nowcast), so it's offered as an alternate mode.
+const HD_TILES =
+  'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png'
+const HD_LAYER = 'radar-hd'
+const HD_MAX_ZOOM = 12
+const HD_REFRESH_MS = 3 * 60 * 1000 // re-fetch the composite every 3 min
+
 // Base map from OpenStreetMap raster tiles — the one provider with guaranteed
 // complete global coverage to z19 (no rural gaps, so it never returns a
 // "Zoom level not supported" placeholder like CARTO/Esri did). No API key.
@@ -32,7 +42,8 @@ const BASE_STYLE = {
       ],
       tileSize: 256,
       maxzoom: 19,
-      attribution: '© OpenStreetMap contributors · Radar © RainViewer',
+      attribution:
+        '© OpenStreetMap · Radar: RainViewer & NWS/Iowa Environmental Mesonet',
     },
   },
   layers: [
@@ -69,6 +80,8 @@ export class RadarMap {
     this.index = 0
     this.playing = false
     this.timer = null
+    this.mode = 'forecast' // 'forecast' (RainViewer) | 'hd' (NWS/IEM)
+    this.hdTimer = null
     this.host = 'https://tilecache.rainviewer.com'
     this.onFrameChange = onFrameChange || (() => {})
     this.marker = null
@@ -144,8 +157,62 @@ export class RadarMap {
     this.showFrame(this.index + 1)
   }
 
+  // ---- HD (NWS/IEM) radar mode ---------------------------------------------
+  _ensureHDLayer() {
+    if (this.map.getSource(HD_LAYER)) return
+    this.map.addSource(HD_LAYER, {
+      type: 'raster',
+      tiles: [HD_TILES],
+      tileSize: 256,
+      maxzoom: HD_MAX_ZOOM, // overzoom beyond native for street-level views
+    })
+    this.map.addLayer({
+      id: HD_LAYER,
+      type: 'raster',
+      source: HD_LAYER,
+      paint: {
+        'raster-opacity': 0,
+        'raster-opacity-transition': { duration: 220 },
+      },
+    })
+  }
+
+  _refreshHD() {
+    // Cache-bust the tile URL so MapLibre re-fetches the latest composite.
+    const src = this.map.getSource(HD_LAYER)
+    if (src && src.setTiles) src.setTiles([`${HD_TILES}?_=${Date.now()}`])
+  }
+
+  /** Switch between 'forecast' (RainViewer, animated) and 'hd' (NWS/IEM). */
+  setMode(mode) {
+    this.mode = mode === 'hd' ? 'hd' : 'forecast'
+    const hd = this.mode === 'hd'
+    this._ensureHDLayer()
+
+    if (hd) {
+      this.pause()
+      // Hide all RainViewer frames, show the HD composite.
+      this.frames.forEach((_, j) => {
+        const sid = this._layerId(j)
+        if (this.map.getLayer(sid)) this.map.setPaintProperty(sid, 'raster-opacity', 0)
+      })
+      this.map.setPaintProperty(HD_LAYER, 'raster-opacity', 0.85)
+      this._refreshHD()
+      if (!this.hdTimer) this.hdTimer = setInterval(() => this._refreshHD(), HD_REFRESH_MS)
+    } else {
+      // Hide HD, restore the current RainViewer frame.
+      this.map.setPaintProperty(HD_LAYER, 'raster-opacity', 0)
+      if (this.hdTimer) {
+        clearInterval(this.hdTimer)
+        this.hdTimer = null
+      }
+      this.showFrame(this.index)
+    }
+    return this.mode
+  }
+
   play() {
-    if (this.playing || this.frames.length < 2) return
+    if (this.mode === 'hd' || this.playing || this.frames.length < 2) return
     this.playing = true
     this.timer = setInterval(() => {
       // Pause briefly on the final nowcast frame before looping.

@@ -19,6 +19,10 @@ const el = {
   timeline: $('timeline'),
   timeText: $('timeText'),
   nowcastBadge: $('nowcastBadge'),
+  radarControls: $('radarControls'),
+  radarMode: $('radarMode'),
+  hdLabel: $('hdLabel'),
+  modeBtns: document.querySelectorAll('.rm-btn'),
   panel: $('panel'),
   panelHandle: $('panelHandle'),
   nowTemp: $('nowTemp'),
@@ -393,6 +397,11 @@ function wireEvents() {
 
   el.locateBtn.addEventListener('click', () => requestGeolocation({ silent: false }))
 
+  // Radar mode: Forecast (RainViewer, animated) vs HD (NWS/IEM, high-res)
+  el.modeBtns.forEach((btn) => {
+    btn.addEventListener('click', () => switchRadarMode(btn.dataset.mode))
+  })
+
   // Alerts
   el.alertBanner.addEventListener('click', openAlertSheet)
   el.alertClose.addEventListener('click', closeAlertSheet)
@@ -444,6 +453,25 @@ function switchTier(tier) {
 
 function togglePanel() {
   el.panel.classList.toggle('open')
+}
+
+// ---- Radar mode (Forecast vs HD) -------------------------------------------
+function switchRadarMode(mode) {
+  const hd = mode === 'hd'
+  radar.setMode(mode)
+  el.modeBtns.forEach((b) => {
+    const on = b.dataset.mode === mode
+    b.classList.toggle('active', on)
+    b.setAttribute('aria-selected', String(on))
+  })
+  // In HD mode the animation timeline doesn't apply — hide it, show a label.
+  el.radarControls.classList.toggle('hd', hd)
+  el.hdLabel.hidden = !hd
+  if (hd) {
+    // Reset the play button visual since playback is paused in HD.
+    el.playIcon.hidden = false
+    el.pauseIcon.hidden = true
+  }
 }
 
 // ---- Search results / saved -------------------------------------------------
