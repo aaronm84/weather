@@ -22,6 +22,10 @@ const BASE_STYLE = {
         'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
       ],
       tileSize: 256,
+      // CARTO raster tiles exist up to z18; declaring this lets MapLibre
+      // overzoom (scale) them past 18 instead of requesting missing tiles
+      // (which return a "Zoom level not supported" placeholder).
+      maxzoom: 18,
       attribution:
         '© OpenStreetMap contributors © CARTO · Radar © RainViewer',
     },
@@ -39,6 +43,7 @@ export class RadarMap {
       style: BASE_STYLE,
       center: [-98.5, 39.5],
       zoom: 4,
+      maxZoom: 20, // overzoom the z18 tiles for a closer view without broken tiles
       attributionControl: { compact: true },
       dragRotate: false,
     })
@@ -94,6 +99,9 @@ export class RadarMap {
         type: 'raster',
         tiles: [this._tileUrl(frame.path)],
         tileSize: TILE_SIZE,
+        // Radar is coarse; cap native zoom so MapLibre overzooms rather than
+        // fetching high-zoom tiles that may not exist.
+        maxzoom: 18,
       })
       this.map.addLayer({
         id: sid,
