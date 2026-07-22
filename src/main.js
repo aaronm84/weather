@@ -61,6 +61,12 @@ async function init() {
     toast('Radar data unavailable right now.')
   }
 
+  // Keep radar fresh if the app is left open (only while animating, so it
+  // doesn't yank a paused/scrubbed frame out from under the user).
+  setInterval(() => {
+    if (!document.hidden && radar.playing) loadRadarMode(radar.mode)
+  }, 5 * 60 * 1000)
+
   // Pick an initial location: last used → geolocation → US default.
   const last = getLast()
   if (last) {

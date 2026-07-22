@@ -23,12 +23,10 @@ const HRRR_MAX_ZOOM = 10
 const HRRR_PAST_MIN = 30 // minutes of pre-now context
 const HRRR_FUTURE_MIN = 180 // minutes ahead
 const HRRR_STEP = 15
-
-function utcStamp(ms) {
-  const d = new Date(ms)
-  const p = (n) => String(n).padStart(2, '0')
-  return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}${p(d.getUTCHours())}${p(d.getUTCMinutes())}`
-}
+// IEM's latest processed HRRR run is ~2h old, so its +120min forecast ≈ now.
+// We anchor the timeline there; using the "0" latest-run alias for tiles keeps
+// them resolving as new runs publish (an explicit older run stops serving).
+const HRRR_ANCHOR_MIN = 120
 
 const BASE_STYLE = {
   version: 8,
@@ -109,19 +107,19 @@ export class RadarMap {
 
   _loadHRRR() {
     const nowMs = Date.now()
-    // Pin an explicitly-available run: top of the hour, 2h ago (UTC). IEM has
-    // processed it, and knowing the init lets us label frames by valid time.
-    const initMs = Math.floor(nowMs / 3600000) * 3600000 - 2 * 3600000
-    const initToken = utcStamp(initMs)
-    const baseLead = Math.floor((nowMs - initMs) / 60000 / HRRR_STEP) * HRRR_STEP
     const frames = []
-    for (let m = baseLead - HRRR_PAST_MIN; m <= baseLead + HRRR_FUTURE_MIN; m += HRRR_STEP) {
-      if (m < 0) continue
-      const validMs = initMs + m * 60000
+    for (
+      let lead = HRRR_ANCHOR_MIN - HRRR_PAST_MIN;
+      lead <= HRRR_ANCHOR_MIN + HRRR_FUTURE_MIN;
+      lead += HRRR_STEP
+    ) {
+      if (lead < 0) continue
+      const validMs = nowMs + (lead - HRRR_ANCHOR_MIN) * 60000
       frames.push({
         time: Math.floor(validMs / 1000),
-        tiles: `${IEM_BASE}/hrrr::REFD-F${String(m).padStart(4, '0')}-${initToken}/{z}/{x}/{y}.png`,
-        isFuture: validMs > nowMs,
+        // "-0" = latest run; F{minutes} is the forecast lead.
+        tiles: `${IEM_BASE}/hrrr::REFD-F${String(lead).padStart(4, '0')}-0/{z}/{x}/{y}.png`,
+        isFuture: lead > HRRR_ANCHOR_MIN,
       })
     }
     this.frames = frames
