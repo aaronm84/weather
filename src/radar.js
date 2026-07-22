@@ -15,27 +15,39 @@ const SNOW = 1
 // placeholder tiles.
 const RADAR_MAX_ZOOM = 10
 
-// Dark, label-light base style built from CARTO's free raster tiles so we need
-// no map API key. Radar reads best over a muted basemap.
+// Base map from OpenStreetMap raster tiles — the one provider with guaranteed
+// complete global coverage to z19 (no rural gaps, so it never returns a
+// "Zoom level not supported" placeholder like CARTO/Esri did). No API key.
+// It's a light map, so we darken it with raster paint filters to fit the theme
+// and let the colored radar read on top.
 const BASE_STYLE = {
   version: 8,
   sources: {
     basemap: {
       type: 'raster',
-      // Esri "World Dark Gray" — a natively dark, purpose-built basemap. Free,
-      // no key. Native tiles go to z16; MapLibre overzooms (scales) them beyond
-      // that, so deep zoom works without any "unsupported zoom" placeholder.
       tiles: [
-        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png',
       ],
       tileSize: 256,
-      maxzoom: 16,
-      attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap · Radar © RainViewer',
+      maxzoom: 19,
+      attribution: '© OpenStreetMap contributors · Radar © RainViewer',
     },
   },
   layers: [
     { id: 'bg', type: 'background', paint: { 'background-color': '#0b1220' } },
-    { id: 'basemap', type: 'raster', source: 'basemap', paint: { 'raster-opacity': 0.95 } },
+    {
+      id: 'basemap',
+      type: 'raster',
+      source: 'basemap',
+      paint: {
+        'raster-opacity': 1,
+        'raster-saturation': -0.55, // mute OSM's colors
+        'raster-brightness-max': 0.5, // dim it toward the dark theme
+        'raster-contrast': 0.05,
+      },
+    },
   ],
 }
 
