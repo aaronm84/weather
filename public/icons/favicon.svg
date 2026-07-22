@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="35%" cy="28%" r="90%">
+      <stop offset="0%" stop-color="#1b2740"/>
+      <stop offset="100%" stop-color="#0b1220"/>
+    </radialGradient>
+    <linearGradient id="cloud" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#eaf0fb"/>
+      <stop offset="100%" stop-color="#b9c8e6"/>
+    </linearGradient>
+    <radialGradient id="sweep" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4aa8ff" stop-opacity="0.9"/>
+      <stop offset="70%" stop-color="#4aa8ff" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#4aa8ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- radar rings -->
+  <g fill="none" stroke="#4aa8ff" stroke-opacity="0.28" stroke-width="4">
+    <circle cx="256" cy="266" r="150"/>
+    <circle cx="256" cy="266" r="104"/>
+    <circle cx="256" cy="266" r="58"/>
+  </g>
+  <!-- radar sweep -->
+  <path d="M256 266 L256 116 A150 150 0 0 1 386 191 Z" fill="url(#sweep)"/>
+  <!-- precip blips -->
+  <circle cx="212" cy="212" r="12" fill="#7bd0ff"/>
+  <circle cx="300" cy="238" r="9" fill="#4aa8ff"/>
+  <circle cx="270" cy="316" r="7" fill="#ffb454"/>
+  <!-- cloud -->
+  <path d="M188 336 a44 44 0 0 1 8-87 a60 60 0 0 1 114 12 a40 40 0 0 1 -6 79 Z" fill="url(#cloud)"/>
+  <!-- rain -->
+  <g stroke="#4aa8ff" stroke-width="10" stroke-linecap="round">
+    <line x1="212" y1="352" x2="204" y2="378"/>
+    <line x1="252" y1="352" x2="244" y2="378"/>
+    <line x1="292" y1="352" x2="284" y2="378"/>
+  </g>
+</svg>
