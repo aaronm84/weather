@@ -55,10 +55,10 @@
         </div>
       </div>
 
-      <!-- Radar mode toggle: animated forecast vs. high-res NWS -->
-      <div id="radarMode" role="tablist" aria-label="Radar type">
+      <!-- Radar source toggle: RainViewer (with forecast movement) vs. NWS -->
+      <div id="radarMode" role="tablist" aria-label="Radar source">
         <button class="rm-btn active" data-mode="forecast" role="tab" aria-selected="true">Forecast</button>
-        <button class="rm-btn" data-mode="hd" role="tab" aria-selected="false">HD</button>
+        <button class="rm-btn" data-mode="detailed" role="tab" aria-selected="false">Detailed</button>
       </div>
 
       <!-- Radar timeline controls -->
@@ -71,7 +71,6 @@
           <input id="timeline" type="range" min="0" max="0" value="0" step="1" aria-label="Radar frame" />
           <div id="timeLabel"><span id="timeText">—</span><span id="nowcastBadge" hidden>FORECAST</span></div>
         </div>
-        <div id="hdLabel" hidden>NWS Live HD · sharp when zoomed in</div>
       </div>
 
       <!-- Sliding forecast panel -->

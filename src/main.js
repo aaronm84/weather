@@ -19,9 +19,7 @@ const el = {
   timeline: $('timeline'),
   timeText: $('timeText'),
   nowcastBadge: $('nowcastBadge'),
-  radarControls: $('radarControls'),
   radarMode: $('radarMode'),
-  hdLabel: $('hdLabel'),
   modeBtns: document.querySelectorAll('.rm-btn'),
   panel: $('panel'),
   panelHandle: $('panelHandle'),
@@ -56,12 +54,10 @@ async function init() {
   wireEvents()
 
   try {
-    await radar.loadFrames()
+    await loadRadarMode('forecast')
   } catch (e) {
     toast('Radar data unavailable right now.')
   }
-  el.timeline.max = String(Math.max(0, radar.frames.length - 1))
-  el.timeline.value = String(radar.index)
 
   // Pick an initial location: last used → geolocation → US default.
   const last = getLast()
@@ -422,8 +418,8 @@ function onRadarFrame(index, frame) {
   if (!frame) return
   const t = new Date(frame.time * 1000)
   const label = t.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-  el.timeText.textContent = frame.isNowcast ? `+ ${label}` : label
-  el.nowcastBadge.hidden = !frame.isNowcast
+  el.timeText.textContent = frame.isFuture ? `Forecast · ${label}` : label
+  el.nowcastBadge.hidden = !frame.isFuture
 }
 
 // ---- Events -----------------------------------------------------------------
@@ -501,23 +497,24 @@ function togglePanel() {
   el.panel.classList.toggle('open')
 }
 
-// ---- Radar mode (Forecast vs HD) -------------------------------------------
-function switchRadarMode(mode) {
-  const hd = mode === 'hd'
-  radar.setMode(mode)
+// ---- Radar mode (both animated) --------------------------------------------
+async function loadRadarMode(mode) {
+  const res = await radar.setMode(mode).catch(() => ({ frameCount: 0 }))
+  el.timeline.max = String(Math.max(0, (res.frameCount || 1) - 1))
+  el.timeline.value = String(radar.index)
   el.modeBtns.forEach((b) => {
-    const on = b.dataset.mode === mode
+    const on = b.dataset.mode === radar.mode
     b.classList.toggle('active', on)
     b.setAttribute('aria-selected', String(on))
   })
-  // In HD mode the animation timeline doesn't apply — hide it, show a label.
-  el.radarControls.classList.toggle('hd', hd)
-  el.hdLabel.hidden = !hd
-  if (hd) {
-    // Reset the play button visual since playback is paused in HD.
-    el.playIcon.hidden = false
-    el.pauseIcon.hidden = true
-  }
+  // Auto-play the loop so the movement (and the forecast frames) are visible.
+  radar.play()
+  el.playIcon.hidden = radar.playing
+  el.pauseIcon.hidden = !radar.playing
+}
+
+function switchRadarMode(mode) {
+  loadRadarMode(mode)
 }
 
 // ---- Search results / saved -------------------------------------------------
