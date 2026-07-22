@@ -182,3 +182,42 @@ function normalizeOutlook(d) {
 
 const mean = (a) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : null)
 const round = (v) => (v == null ? null : Math.round(v))
+
+// ---- Severe weather alerts (US National Weather Service) --------------------
+// Free, no key. US-only; for points outside NWS coverage the API returns an
+// error or no features, which we treat as "no alerts".
+
+const NWS_ALERTS_URL = 'https://api.weather.gov/alerts/active'
+
+const SEVERITY_RANK = { Extreme: 4, Severe: 3, Moderate: 2, Minor: 1, Unknown: 0 }
+
+export async function getAlerts(lat, lon) {
+  try {
+    const url = `${NWS_ALERTS_URL}?point=${lat.toFixed(4)},${lon.toFixed(4)}`
+    const res = await fetch(url, { headers: { Accept: 'application/geo+json' } })
+    if (!res.ok) return [] // outside US coverage, or NWS hiccup — no alerts
+    const data = await res.json()
+    const alerts = (data.features || []).map((f) => {
+      const p = f.properties || {}
+      return {
+        id: p.id,
+        event: p.event || 'Weather Alert',
+        severity: p.severity || 'Unknown',
+        urgency: p.urgency || '',
+        headline: p.headline || '',
+        description: p.description || '',
+        instruction: p.instruction || '',
+        area: p.areaDesc || '',
+        onset: p.onset || p.effective || null,
+        expires: p.expires || p.ends || null,
+      }
+    })
+    // Most severe first.
+    alerts.sort(
+      (a, b) => (SEVERITY_RANK[b.severity] || 0) - (SEVERITY_RANK[a.severity] || 0),
+    )
+    return alerts
+  } catch {
+    return []
+  }
+}

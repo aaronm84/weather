@@ -1,8 +1,9 @@
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './style.css'
 import { RadarMap } from './radar.js'
-import { geocode, getForecast, getOutlook } from './forecast.js'
+import { geocode, getForecast, getOutlook, getAlerts } from './forecast.js'
 import { wmoLabel, wmoGlyph } from './wmo.js'
+import { clothingAdvice } from './clothing.js'
 import { getSaved, saveLocation, removeLocation, isSaved, getLast, setLast } from './store.js'
 
 // ---- Element refs -----------------------------------------------------------
@@ -24,6 +25,11 @@ const el = {
   nowPlace: $('nowPlace'),
   nowDesc: $('nowDesc'),
   nowStats: $('nowStats'),
+  clothing: $('clothing'),
+  alertBanner: $('alertBanner'),
+  alertSheet: $('alertSheet'),
+  alertList: $('alertList'),
+  alertClose: $('alertClose'),
   tierTabs: document.querySelectorAll('.tier-tab'),
   tierViews: document.querySelectorAll('.tier-view'),
   hourlyStrip: $('hourlyStrip'),
@@ -98,17 +104,20 @@ async function selectLocation(loc, { fly = true } = {}) {
   try {
     const fc = await getForecast(loc.lat, loc.lon)
     renderCurrent(fc, loc)
+    renderClothing(fc)
     renderHourly(fc)
     renderDaily(fc)
     currentLoc.units = fc.units
   } catch (e) {
     el.nowDesc.textContent = 'Forecast unavailable'
+    el.clothing.hidden = true
     toast('Could not load forecast.')
   }
   // Refresh whichever tier is active if it's the outlook.
   if (document.querySelector('.tier-tab.active')?.dataset.tier === 'outlook') {
     loadOutlook()
   }
+  loadAlerts(loc)
 }
 
 // ---- Rendering: current + tiers --------------------------------------------
@@ -126,6 +135,119 @@ function renderCurrent(fc, loc) {
 
 function stat(label, val) {
   return `<div class="stat"><span class="k">${label}</span><span class="v">${val}</span></div>`
+}
+
+// ---- What to wear -----------------------------------------------------------
+function renderClothing(fc) {
+  const c = fc.current
+  const today = fc.daily?.[0]
+  // Use the next few hours' peak precip chance so a dry "now" doesn't hide an
+  // imminent shower.
+  const soonPop = fc.hourly
+    .slice(0, 6)
+    .reduce((m, h) => (h.pop != null && h.pop > m ? h.pop : m), 0)
+
+  const advice = clothingAdvice({
+    feels: c.feels,
+    code: c.code,
+    wind: c.wind,
+    uv: today?.uv ?? null,
+    pop: soonPop,
+    isDay: c.isDay,
+  })
+
+  const tips = advice.tips.map((t) => `<li>${escapeHtml(t)}</li>`).join('')
+  const addons = advice.addons
+    .map((a) => `<li class="addon"><span>${a.icon}</span>${escapeHtml(a.text)}</li>`)
+    .join('')
+
+  el.clothing.innerHTML = `
+    <div class="clothing-head">
+      <span class="clothing-emoji">${advice.emoji}</span>
+      <div>
+        <div class="clothing-title">What to wear</div>
+        <div class="clothing-sub">${escapeHtml(advice.headline)}</div>
+      </div>
+    </div>
+    <ul class="clothing-tips">${tips}${addons}</ul>`
+  el.clothing.hidden = false
+}
+
+// ---- Severe weather alerts --------------------------------------------------
+let activeAlerts = []
+async function loadAlerts(loc) {
+  // Reset while we fetch so stale alerts from a prior location don't linger.
+  activeAlerts = []
+  el.alertBanner.hidden = true
+  const reqLoc = loc
+  const alerts = await getAlerts(loc.lat, loc.lon)
+  // Ignore if the user switched locations mid-request.
+  if (reqLoc !== currentLoc) return
+  activeAlerts = alerts
+  renderAlertBanner()
+}
+
+const SEV_CLASS = {
+  Extreme: 'sev-extreme',
+  Severe: 'sev-severe',
+  Moderate: 'sev-moderate',
+  Minor: 'sev-minor',
+  Unknown: 'sev-minor',
+}
+
+function renderAlertBanner() {
+  if (!activeAlerts.length) {
+    el.alertBanner.hidden = true
+    return
+  }
+  const top = activeAlerts[0]
+  const more = activeAlerts.length - 1
+  el.alertBanner.className = `alert-banner ${SEV_CLASS[top.severity] || 'sev-minor'}`
+  el.alertBanner.innerHTML = `
+    <span class="alert-ico">⚠️</span>
+    <span class="alert-text">${escapeHtml(top.event)}${
+      more > 0 ? ` <b>+${more} more</b>` : ''
+    }</span>
+    <span class="alert-chevron">Details ›</span>`
+  el.alertBanner.hidden = false
+}
+
+function openAlertSheet() {
+  if (!activeAlerts.length) return
+  el.alertList.innerHTML = activeAlerts
+    .map((a) => {
+      const window = [fmtAlertTime(a.onset), fmtAlertTime(a.expires)]
+        .filter(Boolean)
+        .join(' → ')
+      const body = (a.description || a.headline || '').trim()
+      return `<div class="alert-item ${SEV_CLASS[a.severity] || 'sev-minor'}">
+        <div class="alert-item-head">
+          <strong>${escapeHtml(a.event)}</strong>
+          <span class="alert-sev">${escapeHtml(a.severity)}</span>
+        </div>
+        ${a.area ? `<div class="alert-area">${escapeHtml(a.area)}</div>` : ''}
+        ${window ? `<div class="alert-window">${escapeHtml(window)}</div>` : ''}
+        ${body ? `<p class="alert-desc">${escapeHtml(body)}</p>` : ''}
+        ${a.instruction ? `<p class="alert-instr">${escapeHtml(a.instruction)}</p>` : ''}
+      </div>`
+    })
+    .join('')
+  el.alertSheet.hidden = false
+}
+
+function closeAlertSheet() {
+  el.alertSheet.hidden = true
+}
+
+function fmtAlertTime(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d)) return ''
+  return d.toLocaleString([], {
+    weekday: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
 }
 
 function renderHourly(fc) {
@@ -270,6 +392,13 @@ function wireEvents() {
   })
 
   el.locateBtn.addEventListener('click', () => requestGeolocation({ silent: false }))
+
+  // Alerts
+  el.alertBanner.addEventListener('click', openAlertSheet)
+  el.alertClose.addEventListener('click', closeAlertSheet)
+  el.alertSheet.addEventListener('click', (e) => {
+    if (e.target === el.alertSheet) closeAlertSheet() // tap backdrop to close
+  })
 
   // Search (debounced geocoding)
   let searchTimer

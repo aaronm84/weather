@@ -41,6 +41,20 @@
         </button>
       </header>
 
+      <!-- Severe weather alert banner (tap for details) -->
+      <button id="alertBanner" class="alert-banner" hidden aria-label="Weather alert details"></button>
+
+      <!-- Alert details overlay -->
+      <div id="alertSheet" class="alert-sheet" hidden>
+        <div class="alert-sheet-card" role="dialog" aria-modal="true" aria-label="Weather alerts">
+          <div class="alert-sheet-head">
+            <strong>Active alerts</strong>
+            <button id="alertClose" class="icon-btn small" aria-label="Close">✕</button>
+          </div>
+          <div id="alertList"></div>
+        </div>
+      </div>
+
       <!-- Radar timeline controls -->
       <div id="radarControls" aria-label="Radar animation controls">
         <button id="playBtn" class="icon-btn play" title="Play / pause radar" aria-label="Play or pause radar">
@@ -68,6 +82,8 @@
             </div>
           </div>
           <div id="nowStats"></div>
+          <!-- What to wear -->
+          <div id="clothing" class="clothing" hidden></div>
         </div>
 
         <!-- Tier tabs -->
