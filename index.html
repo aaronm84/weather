@@ -68,7 +68,11 @@
           <svg id="pauseIcon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" hidden><path fill="currentColor" d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
         </button>
         <div id="timelineWrap">
-          <input id="timeline" type="range" min="0" max="0" value="0" step="1" aria-label="Radar frame" />
+          <div id="tlBar">
+            <div id="tlFuture" hidden></div>
+            <div id="nowMarker" hidden><span>NOW</span></div>
+            <input id="timeline" type="range" min="0" max="0" value="0" step="1" aria-label="Radar frame" />
+          </div>
           <div id="timeLabel"><span id="timeText">—</span><span id="nowcastBadge" hidden>FORECAST</span></div>
         </div>
       </div>

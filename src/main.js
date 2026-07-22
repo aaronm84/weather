@@ -19,6 +19,8 @@ const el = {
   timeline: $('timeline'),
   timeText: $('timeText'),
   nowcastBadge: $('nowcastBadge'),
+  tlFuture: $('tlFuture'),
+  nowMarker: $('nowMarker'),
   radarMode: $('radarMode'),
   modeBtns: document.querySelectorAll('.rm-btn'),
   panel: $('panel'),
@@ -499,18 +501,35 @@ function togglePanel() {
 
 // ---- Radar mode (both animated) --------------------------------------------
 async function loadRadarMode(mode) {
-  const res = await radar.setMode(mode).catch(() => ({ frameCount: 0 }))
-  el.timeline.max = String(Math.max(0, (res.frameCount || 1) - 1))
+  const res = await radar.setMode(mode).catch(() => ({ frameCount: 0, futureCount: 0 }))
+  const max = Math.max(0, (res.frameCount || 1) - 1)
+  el.timeline.max = String(max)
   el.timeline.value = String(radar.index)
   el.modeBtns.forEach((b) => {
     const on = b.dataset.mode === radar.mode
     b.classList.toggle('active', on)
     b.setAttribute('aria-selected', String(on))
   })
+  markTimelineFuture(res, max)
   // Auto-play the loop so the movement (and the forecast frames) are visible.
   radar.play()
   el.playIcon.hidden = radar.playing
   el.pauseIcon.hidden = !radar.playing
+}
+
+// Draw the "NOW" divider and shade the forecast (future) portion of the
+// timeline so predicted movement is visibly separate from observed frames.
+function markTimelineFuture(res, max) {
+  const hasFuture = (res.futureCount || 0) > 0 && max > 0
+  el.nowMarker.hidden = !hasFuture
+  el.tlFuture.hidden = !hasFuture
+  if (!hasFuture) return
+  // Thumb is 14px wide; the track is inset 7px each side. Align the overlays.
+  const p = res.nowIndex / max
+  const pos = `calc(7px + ${p} * (100% - 14px))`
+  el.nowMarker.style.left = pos
+  el.tlFuture.style.left = pos
+  el.tlFuture.style.right = '7px'
 }
 
 function switchRadarMode(mode) {

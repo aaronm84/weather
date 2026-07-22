@@ -192,7 +192,7 @@ export class RadarMap {
     this.showFrame(this.index + 1)
   }
 
-  /** Load a provider and rebuild the animation. Returns { mode, frameCount }. */
+  /** Load a provider and rebuild the animation. */
   async setMode(mode) {
     const m = mode === 'detailed' ? 'detailed' : 'forecast'
     this.pause()
@@ -208,7 +208,15 @@ export class RadarMap {
     this._buildLayers()
     this.index = this._nowIndex()
     this.showFrame(this.index)
-    return { mode: m, frameCount: this.frames.length }
+    const futureCount = this.frames.filter((f) => f.isFuture).length
+    const last = this.frames[this.frames.length - 1]
+    return {
+      mode: m,
+      frameCount: this.frames.length,
+      nowIndex: this.index,
+      futureCount,
+      lastTime: last ? last.time : null,
+    }
   }
 
   play() {
