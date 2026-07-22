@@ -35,8 +35,12 @@ const SNOWY = new Set([71, 73, 75, 77, 85, 86])
  * @param {number|null} o.pop precipitation probability (%) for the next few hours
  * @param {boolean} o.isDay
  */
+function bandFor(feels) {
+  return BANDS.find((b) => feels < b.max) || BANDS[BANDS.length - 1]
+}
+
 export function clothingAdvice({ feels, code, wind, uv, pop, isDay }) {
-  const band = BANDS.find((b) => feels < b.max) || BANDS[BANDS.length - 1]
+  const band = bandFor(feels)
   const tips = [...band.base]
   const addons = []
 
@@ -56,4 +60,68 @@ export function clothingAdvice({ feels, code, wind, uv, pop, isDay }) {
     addons.push({ icon: '😎', text: 'Sunglasses for the glare' })
 
   return { emoji: band.emoji, headline: band.headline, key: band.key, tips, addons }
+}
+
+// Per-day advice for the 16-day forecast, for packing. Driven by the day's
+// high (what you dress for during the day), with a note when the low is much
+// cooler so you pack a layer for mornings/evenings.
+export function clothingForDay({ tMax, tMin, code, wind, uv, pop }) {
+  const advice = clothingAdvice({
+    feels: tMax,
+    code,
+    wind,
+    uv,
+    pop,
+    isDay: true,
+  })
+  if (tMin != null && tMax != null && tMax - tMin >= 18 && tMin < 55) {
+    advice.addons = [
+      ...advice.addons,
+      { icon: '🌗', text: `Cooler around ${tMin}° early & late — pack a layer` },
+    ]
+  }
+  return advice
+}
+
+// Aggregate a packing list across a range of days: overall temperature span,
+// a clothing bracket from the coldest to the warmest, and the union of gear
+// (rain/snow/wind/sun) you'd want along the way.
+// Collapse a per-day addon (which carries day-specific numbers) to a generic
+// packing-list item, keyed by icon so the summary lists each kind once.
+const GEAR_BY_ICON = {
+  '☔': { icon: '☔', text: 'Umbrella / rain jacket' },
+  '🌂': { icon: '☔', text: 'Umbrella / rain jacket' },
+  '❄️': { icon: '❄️', text: 'Snow boots & gloves' },
+  '💨': { icon: '💨', text: 'Windproof layer' },
+  '🧴': { icon: '🧴', text: 'Sunscreen & sunglasses' },
+  '😎': { icon: '😎', text: 'Sunglasses' },
+  '🌗': { icon: '🌗', text: 'Layer for cool mornings' },
+}
+
+export function packingList(days) {
+  let lo = Infinity
+  let hi = -Infinity
+  const gear = new Map()
+  for (const d of days) {
+    if (d.tMin != null) lo = Math.min(lo, d.tMin)
+    if (d.tMax != null) hi = Math.max(hi, d.tMax)
+    clothingForDay(d).addons.forEach((x) => {
+      const g = GEAR_BY_ICON[x.icon]
+      if (g) gear.set(g.icon, g)
+    })
+  }
+  if (!isFinite(lo) || !isFinite(hi)) return null
+
+  const coldBand = bandFor(lo)
+  const warmBand = bandFor(hi)
+  const clothes = []
+  if (coldBand.key !== warmBand.key) {
+    // Range spans bands: pack for both the cold end and the warm end.
+    clothes.push({ icon: coldBand.emoji, text: coldBand.base[0] })
+    clothes.push({ icon: warmBand.emoji, text: warmBand.base[0] })
+  } else {
+    clothes.push({ icon: warmBand.emoji, text: warmBand.base[0] })
+    if (warmBand.base[1]) clothes.push({ icon: '', text: warmBand.base[1] })
+  }
+  return { lo, hi, clothes, gear: [...gear.values()] }
 }

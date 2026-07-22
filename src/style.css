@@ -189,25 +189,54 @@ button { font-family: inherit; cursor: pointer; }
 .pop { font-size: 11px; color: var(--cool); }
 .pop.dim { color: var(--line); }
 
-/* ---- Daily list ---- */
-.day {
-  display: grid; grid-template-columns: 62px 30px 52px 1fr; align-items: center;
-  gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--line);
+/* ---- Packing summary ---- */
+.packing {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 10px 12px; margin: 6px 2px 12px;
 }
+.pk-head { font-weight: 600; font-size: 14px; }
+.pk-range { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.pk-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.pk-chip {
+  font-size: 12px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 999px; padding: 4px 10px;
+}
+
+/* ---- Daily list ---- */
+.day { border-bottom: 1px solid var(--line); }
 .day:last-child { border-bottom: none; }
+.day-row {
+  display: grid; grid-template-columns: 58px 26px 46px 1fr 24px; align-items: center;
+  gap: 8px; padding: 10px 4px; width: 100%;
+  background: transparent; border: none; color: inherit; text-align: left; cursor: pointer;
+}
 .d-name { display: flex; flex-direction: column; }
 .d-name small { color: var(--muted); font-size: 11px; }
+.d-name b { font-size: 14px; }
 .d-ico { font-size: 20px; text-align: center; }
 .d-pop { font-size: 12px; color: var(--cool); }
 .d-pop.dim::after { content: ''; }
 .d-range { display: flex; align-items: center; gap: 8px; }
-.t-lo { color: var(--muted); font-size: 13px; width: 30px; text-align: right; }
-.t-hi { font-weight: 600; font-size: 13px; width: 30px; }
+.t-lo { color: var(--muted); font-size: 13px; width: 28px; text-align: right; }
+.t-hi { font-weight: 600; font-size: 13px; width: 28px; }
 .bar { position: relative; flex: 1; height: 5px; background: var(--panel-2); border-radius: 3px; }
 .fill {
   position: absolute; top: 0; height: 100%; border-radius: 3px;
   background: linear-gradient(90deg, var(--cool), var(--warm));
 }
+.d-wear { font-size: 18px; text-align: center; }
+
+/* Expandable per-day packing tips */
+.day-wear { padding: 2px 6px 12px 8px; }
+.dw-head { font-size: 13px; font-weight: 600; color: var(--accent-2); margin-bottom: 6px; }
+.dw-head span { color: var(--text); font-weight: 500; }
+.dw-tips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.dw-tips li {
+  font-size: 12px; background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 999px; padding: 4px 10px; display: inline-flex; gap: 5px; align-items: center;
+}
+.pw-ico { font-size: 12px; }
+.day.open .day-row { background: rgba(74, 168, 255, 0.06); }
 
 /* ---- Outlook ---- */
 .o-day {

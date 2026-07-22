@@ -3,7 +3,7 @@ import './style.css'
 import { RadarMap } from './radar.js'
 import { geocode, getForecast, getOutlook, getAlerts } from './forecast.js'
 import { wmoLabel, wmoGlyph } from './wmo.js'
-import { clothingAdvice } from './clothing.js'
+import { clothingAdvice, clothingForDay, packingList } from './clothing.js'
 import { getSaved, saveLocation, removeLocation, isSaved, getLast, setLast } from './store.js'
 
 // ---- Element refs -----------------------------------------------------------
@@ -38,6 +38,7 @@ const el = {
   tierViews: document.querySelectorAll('.tier-view'),
   hourlyStrip: $('hourlyStrip'),
   dailyList: $('dailyList'),
+  packingSummary: $('packingSummary'),
   outlookIntro: $('outlookIntro'),
   outlookBody: $('outlookBody'),
   toast: $('toast'),
@@ -271,6 +272,7 @@ function renderHourly(fc) {
 }
 
 function renderDaily(fc) {
+  renderPacking(fc.daily)
   const range = tempRange(fc.daily)
   el.dailyList.innerHTML = fc.daily
     .map((d, i) => {
@@ -282,18 +284,62 @@ function renderDaily(fc) {
           ? `<span class="d-pop">💧${d.pop}%</span>`
           : '<span class="d-pop dim"></span>'
       const bar = tempBar(d.tMin, d.tMax, range)
-      return `<div class="day">
-        <div class="d-name"><b>${name}</b><small>${md}</small></div>
-        <div class="d-ico" title="${wmoLabel(d.code)}">${wmoGlyph(d.code)}</div>
-        ${pop}
-        <div class="d-range">
-          <span class="t-lo">${d.tMin}°</span>
-          ${bar}
-          <span class="t-hi">${d.tMax}°</span>
+      const wear = clothingForDay(d)
+      const tips = [...wear.tips.map((t) => ({ icon: '', text: t })), ...wear.addons]
+        .map(
+          (t) =>
+            `<li>${t.icon ? `<span class="pw-ico">${t.icon}</span>` : ''}${escapeHtml(t.text)}</li>`,
+        )
+        .join('')
+      return `<div class="day" data-idx="${i}">
+        <button class="day-row" aria-expanded="false" aria-label="What to wear ${name}">
+          <div class="d-name"><b>${name}</b><small>${md}</small></div>
+          <div class="d-ico" title="${wmoLabel(d.code)}">${wmoGlyph(d.code)}</div>
+          ${pop}
+          <div class="d-range">
+            <span class="t-lo">${d.tMin}°</span>
+            ${bar}
+            <span class="t-hi">${d.tMax}°</span>
+          </div>
+          <span class="d-wear" title="${escapeAttr(wear.headline)}">${wear.emoji}</span>
+        </button>
+        <div class="day-wear" hidden>
+          <div class="dw-head">${wear.emoji} What to wear · <span>${escapeHtml(wear.headline)}</span></div>
+          <ul class="dw-tips">${tips}</ul>
         </div>
       </div>`
     })
     .join('')
+
+  // Tap a day to reveal its packing tips.
+  el.dailyList.querySelectorAll('.day-row').forEach((row) => {
+    row.addEventListener('click', () => {
+      const day = row.closest('.day')
+      const body = day.querySelector('.day-wear')
+      const open = body.hidden
+      body.hidden = !open
+      row.setAttribute('aria-expanded', String(open))
+      day.classList.toggle('open', open)
+    })
+  })
+}
+
+function renderPacking(daily) {
+  const pack = packingList(daily)
+  if (!pack) {
+    el.packingSummary.hidden = true
+    return
+  }
+  const chips = [...pack.clothes, ...pack.gear]
+    .map(
+      (c) => `<span class="pk-chip">${c.icon ? `${c.icon} ` : ''}${escapeHtml(c.text)}</span>`,
+    )
+    .join('')
+  el.packingSummary.innerHTML = `
+    <div class="pk-head">🧳 Packing for the next ${daily.length} days</div>
+    <div class="pk-range">Temps ${pack.lo}° – ${pack.hi}°</div>
+    <div class="pk-chips">${chips}</div>`
+  el.packingSummary.hidden = false
 }
 
 function tempRange(daily) {
