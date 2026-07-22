@@ -87,8 +87,10 @@ button { font-family: inherit; cursor: pointer; }
   display: flex; align-items: center; gap: 10px;
   transition: bottom 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
+/* The expanded panel covers most of the map, so fade the radar controls out
+   while it's open rather than trapping them behind it. */
 #panel.open ~ #radarControls,
-#app:has(#panel.open) #radarControls { bottom: calc(56vh + 12px); }
+#app:has(#panel.open) #radarControls { opacity: 0; pointer-events: none; }
 #timelineWrap {
   flex: 1; background: rgba(19, 28, 46, 0.85); backdrop-filter: blur(10px);
   border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px 4px;
@@ -107,11 +109,17 @@ button { font-family: inherit; cursor: pointer; }
   border-top: 1px solid var(--line); border-radius: 20px 20px 0 0;
   box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
   padding: 0 16px calc(16px + var(--safe-bottom));
+  /* Fixed height so the visible area == panel height when open; this lets
+     #tierBody (flex:1, overflow-y:auto) scroll within the viewport instead of
+     the lower content being pushed off-screen. */
+  height: 86vh;
   transform: translateY(calc(100% - 132px));
   transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-  max-height: 82vh; display: flex; flex-direction: column;
+  display: flex; flex-direction: column;
 }
-#panel.open { transform: translateY(calc(100% - 56vh)); }
+#panel.open { transform: translateY(0); }
+/* Keep the header area fixed; only the forecast body scrolls. */
+#nowBlock, #tierTabs { flex-shrink: 0; }
 #panelHandle { padding: 10px 0 6px; display: grid; place-items: center; cursor: grab; }
 .grip { width: 40px; height: 4px; border-radius: 3px; background: var(--line); }
 
@@ -280,7 +288,9 @@ button { font-family: inherit; cursor: pointer; }
 
 @media (min-width: 720px) {
   #panel { left: auto; right: 12px; bottom: 12px; width: 380px; border-radius: 20px; border: 1px solid var(--line); }
-  #panel, #panel.open { transform: none; max-height: calc(100vh - 24px); }
+  /* On desktop the panel is a fixed side card, not a bottom sheet: no
+     transform, size to content up to the viewport. */
+  #panel, #panel.open { transform: none; height: auto; max-height: calc(100vh - 24px); }
   #radarControls { right: 404px; }
-  #app:has(#panel.open) #radarControls { bottom: calc(12px + var(--safe-bottom)); }
+  #app:has(#panel.open) #radarControls { opacity: 1; pointer-events: auto; bottom: calc(12px + var(--safe-bottom)); }
 }
