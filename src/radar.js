@@ -8,6 +8,12 @@ const COLOR_SCHEME = 4 // "The Weather Channel"-style palette
 const TILE_SIZE = 512
 const SMOOTH = 1
 const SNOW = 1
+// RainViewer serves radar tiles only up to a modest zoom; beyond that it
+// returns a "Zoom level not supported" placeholder image. Radar reflectivity is
+// ~1km resolution, so there's no real detail past this anyway — declaring it as
+// the source maxzoom makes MapLibre overzoom (scale) instead of requesting the
+// placeholder tiles.
+const RADAR_MAX_ZOOM = 10
 
 // Dark, label-light base style built from CARTO's free raster tiles so we need
 // no map API key. Radar reads best over a muted basemap.
@@ -96,9 +102,7 @@ export class RadarMap {
         type: 'raster',
         tiles: [this._tileUrl(frame.path)],
         tileSize: TILE_SIZE,
-        // Radar is coarse; cap native zoom so MapLibre overzooms rather than
-        // fetching high-zoom tiles that may not exist.
-        maxzoom: 18,
+        maxzoom: RADAR_MAX_ZOOM, // overzoom beyond native to avoid placeholder tiles
       })
       this.map.addLayer({
         id: sid,
