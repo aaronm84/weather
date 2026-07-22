@@ -14,25 +14,22 @@ const SNOW = 1
 const BASE_STYLE = {
   version: 8,
   sources: {
-    carto: {
+    basemap: {
       type: 'raster',
+      // Esri "World Dark Gray" — a natively dark, purpose-built basemap. Free,
+      // no key. Native tiles go to z16; MapLibre overzooms (scales) them beyond
+      // that, so deep zoom works without any "unsupported zoom" placeholder.
       tiles: [
-        'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
       ],
       tileSize: 256,
-      // CARTO raster tiles exist up to z18; declaring this lets MapLibre
-      // overzoom (scale) them past 18 instead of requesting missing tiles
-      // (which return a "Zoom level not supported" placeholder).
-      maxzoom: 18,
-      attribution:
-        '© OpenStreetMap contributors © CARTO · Radar © RainViewer',
+      maxzoom: 16,
+      attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap · Radar © RainViewer',
     },
   },
   layers: [
     { id: 'bg', type: 'background', paint: { 'background-color': '#0b1220' } },
-    { id: 'carto', type: 'raster', source: 'carto', paint: { 'raster-opacity': 0.9 } },
+    { id: 'basemap', type: 'raster', source: 'basemap', paint: { 'raster-opacity': 0.95 } },
   ],
 }
 

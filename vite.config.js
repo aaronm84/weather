@@ -69,7 +69,7 @@ export default defineConfig({
             // Radar + base-map tiles — cache-first, they never change once
             // published and are the heaviest payload.
             urlPattern:
-              /^https:\/\/(tilecache\.rainviewer\.com|[a-c]?\.?tile\.openstreetmap\.org|.*\.basemaps\.cartocdn\.com)\/.*/i,
+              /^https:\/\/(tilecache\.rainviewer\.com|server\.arcgisonline\.com|[a-c]?\.?tile\.openstreetmap\.org|.*\.basemaps\.cartocdn\.com)\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'map-tiles',
