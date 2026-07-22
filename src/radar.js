@@ -8,12 +8,12 @@ const COLOR_SCHEME = 4 // "The Weather Channel"-style palette
 const TILE_SIZE = 512
 const SMOOTH = 1
 const SNOW = 1
-// RainViewer serves radar tiles only up to a modest zoom; beyond that it
-// returns a "Zoom level not supported" placeholder image. Radar reflectivity is
-// ~1km resolution, so there's no real detail past this anyway — declaring it as
-// the source maxzoom makes MapLibre overzoom (scale) instead of requesting the
-// placeholder tiles.
-const RADAR_MAX_ZOOM = 10
+// RainViewer's free radar API serves 512px tiles only up to zoom 7 — beyond
+// that the tile server returns a "Zoom Level Not Supported" placeholder image
+// (confirmed: rainviewer-api-example README, "Max zoom: Level 7 (512px tiles)").
+// Declaring it as the source maxzoom makes MapLibre overzoom (scale) the z7
+// tile for closer views instead of requesting the placeholder tiles.
+const RADAR_MAX_ZOOM = 7
 
 // Base map from OpenStreetMap raster tiles — the one provider with guaranteed
 // complete global coverage to z19 (no rural gaps, so it never returns a
