@@ -43,7 +43,7 @@ export class RadarMap {
       style: BASE_STYLE,
       center: [-98.5, 39.5],
       zoom: 4,
-      maxZoom: 20, // overzoom the z18 tiles for a closer view without broken tiles
+      maxZoom: 22, // zoom in as far as possible; z18 tiles are overzoomed (scaled) beyond native
       attributionControl: { compact: true },
       dragRotate: false,
     })
